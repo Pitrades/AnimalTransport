@@ -19,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.UUID;
 
 public class AnimalEggCommand  implements CommandExecutor, Listener {
     static ChatColor loreColor = ChatColor.LIGHT_PURPLE;
@@ -85,12 +86,26 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
                         newItem.setItemMeta(newMeta);
                         item.setAmount(item.getAmount()-1);
                         //player.getInventory().addItem(newItem);
-                        SerializeEntities.spawnEntity(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()), storedAnimal);
+                        UUID uniqueId = UUID.fromString(storedAnimal);
+                        Entity entity2 = getEntityByUniqueId(uniqueId);
+                        entity2.teleport(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()));
+                        entity2.setGravity(true);
+                        ((LivingEntity) entity2).setAI(true);
+                        ((LivingEntity) entity2).setInvulnerable(false);
                         return;
                     }
 
                     //player.getWorld().spawn(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()), type.getEntityClass());
-                    SerializeEntities.spawnEntity(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()), storedAnimal);
+                    //SerializeEntities.spawnEntity(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()), storedAnimal);
+
+                    UUID uniqueId = UUID.fromString(storedAnimal);
+                    Entity entity2 = getEntityByUniqueId(uniqueId);
+                    entity2.teleport(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()));
+                    entity2.setGravity(true);
+                    ((LivingEntity) entity2).setAI(true);
+                    ((LivingEntity) entity2).setInvulnerable(false);
+
+
                     data.set(namespacedKey, PersistentDataType.STRING, "");
                     ArrayList< String > lore = new ArrayList < > ();
                     lore.add(" ");
@@ -122,7 +137,11 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
 
             Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(AnimalTransport.getPlugin(), new Runnable(){
                 public void run(){
-                    entity.remove();
+                    //entity.remove();
+                    entity.teleport(entity.getLocation().add(0, 100, 0));
+                    entity.setGravity(false);
+                    ((LivingEntity) entity).setAI(false);
+                    ((LivingEntity) entity).setInvulnerable(true);
                 }
             }, 1);
             if(item.getAmount()>1){
@@ -131,7 +150,7 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
 
                 ItemMeta newMeta = newItem.getItemMeta();
                 PersistentDataContainer newData = newMeta.getPersistentDataContainer();
-                newData.set(namespacedKey, PersistentDataType.STRING, SerializeEntities.serializeEntity(entity));
+                newData.set(namespacedKey, PersistentDataType.STRING, entity.getUniqueId().toString());
                 ArrayList< String > lore = new ArrayList < > ();
                 lore.add(" ");
                 lore.add(loreColor + translateName(entity.getName())+" gefangen!");
@@ -142,7 +161,7 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
                 return;
             }
 
-            data.set(namespacedKey, PersistentDataType.STRING, SerializeEntities.serializeEntity(entity));
+            data.set(namespacedKey, PersistentDataType.STRING, entity.getUniqueId().toString());
             ArrayList< String > lore = new ArrayList < > ();
             lore.add(" ");
             lore.add(loreColor + translateName(entity.getName())+" gefangen!");
@@ -177,4 +196,14 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
     }
 
 
+    public Entity getEntityByUniqueId(UUID uniqueId) {
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                if (entity.getUniqueId().equals(uniqueId))
+                    return entity;
+            }
+        }
+
+        return null;
+    }
 }
