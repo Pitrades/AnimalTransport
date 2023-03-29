@@ -1,6 +1,5 @@
 package org.silvius.animaltransport;
 
-import com.google.gson.Gson;
 import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -8,6 +7,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -23,6 +23,8 @@ import java.util.UUID;
 
 public class AnimalEggCommand  implements CommandExecutor, Listener {
     static ChatColor loreColor = ChatColor.LIGHT_PURPLE;
+    static Location teleportLocation = new Location(Bukkit.getWorlds().get(0), 1000, 1000, 1000);
+    static Chunk chunk = teleportLocation.getChunk();
 
     @Override
     public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
@@ -51,10 +53,11 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
 
     }
 
-    public static ChatColor getLoreColor(){
-        return loreColor;
-    }
 
+    @EventHandler
+    public static void onEntityDamaged(EntityDamageByEntityEvent event){
+        if (event.getEntity().getLocation().toVector().distance(teleportLocation.toVector())<0.5 && event.getEntity().isInvulnerable()){event.setCancelled(true);}
+    }
 
 
     @EventHandler
@@ -88,24 +91,13 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
                         //player.getInventory().addItem(newItem);
                         UUID uniqueId = UUID.fromString(storedAnimal);
                         Entity entity2 = getEntityByUniqueId(uniqueId);
-                        entity2.teleport(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()));
-                        entity2.setGravity(true);
-                        ((LivingEntity) entity2).setAI(true);
-                        ((LivingEntity) entity2).setInvulnerable(false);
+                        teleportEntity(false, entity2, IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()));
                         return;
                     }
 
-                    //player.getWorld().spawn(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()), type.getEntityClass());
-                    //SerializeEntities.spawnEntity(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()), storedAnimal);
-
                     UUID uniqueId = UUID.fromString(storedAnimal);
                     Entity entity2 = getEntityByUniqueId(uniqueId);
-                    entity2.teleport(IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()));
-                    entity2.setGravity(true);
-                    ((LivingEntity) entity2).setAI(true);
-                    ((LivingEntity) entity2).setInvulnerable(false);
-
-
+                    teleportEntity(false, entity2, IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()));
                     data.set(namespacedKey, PersistentDataType.STRING, "");
                     ArrayList< String > lore = new ArrayList < > ();
                     lore.add(" ");
@@ -116,10 +108,22 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
             }
         }
     }
+
+    private static void teleportEntity(boolean isRemoved, Entity entity, Location location) {
+        entity.setGravity(!isRemoved);
+        ((LivingEntity) entity).setAI(!isRemoved);
+        entity.setInvulnerable(isRemoved);
+        if(isRemoved){entity.setFreezeTicks(Integer.MAX_VALUE);}
+        else{entity.setFreezeTicks(0);}
+        ((LivingEntity) entity).setInvisible(isRemoved);
+        entity.setPersistent(isRemoved);
+        entity.teleport(location);
+    }
+
     @EventHandler
     public void playerInteractEntityEvent(PlayerInteractEntityEvent event){
         EquipmentSlot hand = event.getHand();
-        if (hand != null && !hand.equals(EquipmentSlot.HAND)) return;
+        if (!hand.equals(EquipmentSlot.HAND)) return;
         Player player = event.getPlayer();
         Entity entity = player.getTargetEntity(5);
         if(player.getInventory().getItemInMainHand().getType()==Material.AIR){return;}
@@ -127,8 +131,13 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
         ItemMeta meta = item.getItemMeta();
         PersistentDataContainer data = meta.getPersistentDataContainer();
         NamespacedKey namespacedKey = new NamespacedKey(AnimalTransport.getPlugin(), "tier");
+
         if(entity==null){return;}
         if(entity instanceof Monster || !isValidEntity(entity)){return;}
+        if (!(entity instanceof Ageable)){return;}
+        if(entity instanceof Tameable && ((Tameable) entity).isTamed() && ((Tameable) entity).getOwner()!=event.getPlayer()){return;}
+        if(entity.getCustomName()!=null){return;}
+
         if(data.has(namespacedKey)) {
             String storedAnimal = data.get(namespacedKey, PersistentDataType.STRING);
             if(!Objects.equals(storedAnimal, "")){
@@ -137,11 +146,8 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
 
             Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(AnimalTransport.getPlugin(), new Runnable(){
                 public void run(){
-                    //entity.remove();
-                    entity.teleport(entity.getLocation().add(0, 100, 0));
-                    entity.setGravity(false);
-                    ((LivingEntity) entity).setAI(false);
-                    ((LivingEntity) entity).setInvulnerable(true);
+                    teleportEntity(true, entity, teleportLocation);
+
                 }
             }, 1);
             if(item.getAmount()>1){
@@ -185,23 +191,15 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
         }}
 
     private boolean isValidEntity(Entity entity){
-        if(entity instanceof Sheep || entity instanceof Cow || entity instanceof Pig || entity instanceof Chicken)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
+        return true;
     }
 
 
-    public Entity getEntityByUniqueId(UUID uniqueId) {
-        for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntities()) {
-                if (entity.getUniqueId().equals(uniqueId))
-                    return entity;
-            }
+    public Entity getEntityByUniqueId(UUID uniqueId){
+        chunk.load();
+                for (Entity entity : chunk.getEntities()) {
+                    if (entity.getUniqueId().equals(uniqueId))
+                        return entity;
         }
 
         return null;
