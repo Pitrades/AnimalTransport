@@ -137,7 +137,7 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
         if (!(entity instanceof Ageable)){return;}
         if(entity instanceof Tameable && ((Tameable) entity).isTamed() && ((Tameable) entity).getOwner()!=event.getPlayer()){return;}
         if(entity.getCustomName()!=null){return;}
-
+        event.setCancelled(true);
         if(data.has(namespacedKey)) {
             String storedAnimal = data.get(namespacedKey, PersistentDataType.STRING);
             if(!Objects.equals(storedAnimal, "")){
