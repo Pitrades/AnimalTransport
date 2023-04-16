@@ -4,6 +4,7 @@ import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.Configuration;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -22,9 +23,9 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class AnimalEggCommand  implements CommandExecutor, Listener {
-    static ChatColor loreColor = ChatColor.LIGHT_PURPLE;
-    static Location teleportLocation = new Location(Bukkit.getWorlds().get(0), 1000, 1000, 1000);
-    static Chunk chunk = teleportLocation.getChunk();
+    private static ChatColor loreColor = ChatColor.LIGHT_PURPLE;
+    private static Location teleportLocation;
+    private static Chunk chunk;
 
     @Override
     public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
@@ -35,24 +36,67 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
                 commandSender.sendMessage(ChatColor.RED+"Keine Berechtigung");
                 return true;
             }
-            ItemStack stack = new ItemStack(Material.POPPED_CHORUS_FRUIT);
-            ItemMeta meta = stack.getItemMeta();
-            meta.setDisplayName(ChatColor.RED + "Transportei");
-            ArrayList<String> lore = new ArrayList<>();
-            lore.add(" ");
-            lore.add(loreColor + "Kein Tier gefangen");
-            PersistentDataContainer data = meta.getPersistentDataContainer();
-            NamespacedKey namespacedKey = new NamespacedKey(AnimalTransport.getPlugin(), "tier");
-            data.set(namespacedKey, PersistentDataType.STRING, "");
-            meta.setLore(lore);
-            stack.setItemMeta(meta);
-            player.getInventory().addItem(stack);
+            if(strings.length==0){
+                commandSender.sendMessage(ChatColor.RED+"Fehlende Argumente");
+                return true;
+            }
+            if(strings.length==2){
+                commandSender.sendMessage(ChatColor.RED+"Zu viele Argumente");
+                return true;
+            }
+            if(strings[0].equals("get")){
+                ItemStack stack = new ItemStack(Material.POPPED_CHORUS_FRUIT);
+                ItemMeta meta = stack.getItemMeta();
+                meta.setDisplayName(ChatColor.RED + "Transportei");
+                ArrayList<String> lore = new ArrayList<>();
+                lore.add(" ");
+                lore.add(loreColor + "Kein Tier gefangen");
+                PersistentDataContainer data = meta.getPersistentDataContainer();
+                NamespacedKey namespacedKey = new NamespacedKey(AnimalTransport.getPlugin(), "tier");
+                data.set(namespacedKey, PersistentDataType.STRING, "");
+                meta.setLore(lore);
+                stack.setItemMeta(meta);
+                player.getInventory().addItem(stack);
+            } else if (strings[0].equals("setLocation")) {
+                Location loc = player.getLocation();
+                Configuration config = AnimalTransport.getPlugin().getConfig();
+                config.set("location.world" , loc.getWorld().getName());
+                config.set("location.x" , loc.getX());
+                config.set("location.y" , loc.getY());
+                config.set("location.z" , loc.getZ());
+                AnimalTransport.getPlugin().saveConfig();
+                AnimalTransport.getPlugin().reloadConfig();
+                config = AnimalTransport.getPlugin().getConfig();
+                World w = Bukkit.getServer().getWorld(config.getString("location.world"));
+                double x = config.getDouble("location.x");
+                double y = config.getDouble("location.y");
+                double z = config.getDouble("location.z");
+                teleportLocation = new Location(w, x, y, z);
+                chunk = teleportLocation.getChunk();
+            }
+
 
         }
         return true;
 
     }
+    public static void initialize(){
+        Configuration config = AnimalTransport.getPlugin().getConfig();
+        if( Objects.equals(config.getString("location.world"), "")){return;}
+        World w = Bukkit.getServer().getWorld(config.getString("location.world"));
+        double x = config.getDouble("location.x");
+        double y = config.getDouble("location.y");
+        double z = config.getDouble("location.z");
+        teleportLocation = new Location(w, x, y, z);
+        chunk = teleportLocation.getChunk();
+        chunk.load();
+        for (Entity entity : chunk.getEntities()) {
+            if ((Integer.MAX_VALUE-entity.getFreezeTicks())>20*60*60*24*100 && entity.getFreezeTicks()>0){
+                entity.remove();
+            }
+        }
 
+    };
 
     @EventHandler
     public static void onEntityDamaged(EntityDamageByEntityEvent event){
@@ -91,13 +135,13 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
                         //player.getInventory().addItem(newItem);
                         UUID uniqueId = UUID.fromString(storedAnimal);
                         Entity entity2 = getEntityByUniqueId(uniqueId);
-                        teleportEntity(false, entity2, IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()));
+                        teleportEntity(false, entity2, IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()), player);
                         return;
                     }
 
                     UUID uniqueId = UUID.fromString(storedAnimal);
                     Entity entity2 = getEntityByUniqueId(uniqueId);
-                    teleportEntity(false, entity2, IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()));
+                    teleportEntity(false, entity2, IntersectionUtils.getIntersection(player.getEyeLocation(), event.getClickedBlock(), event.getBlockFace(), 0d).toLocation(player.getWorld()), player);
                     data.set(namespacedKey, PersistentDataType.STRING, "");
                     ArrayList< String > lore = new ArrayList < > ();
                     lore.add(" ");
@@ -109,13 +153,16 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
         }
     }
 
-    private static void teleportEntity(boolean isRemoved, Entity entity, Location location) {
+    private static void teleportEntity(boolean isRemoved, Entity entity, Location location, Player player) {
+        if(location==null){
+            player.sendMessage(ChatColor.RED + "Die Teleportstelle wurde noch nicht gesetzt.");
+        }
         entity.setGravity(!isRemoved);
         ((LivingEntity) entity).setAI(!isRemoved);
         entity.setInvulnerable(isRemoved);
         if(isRemoved){entity.setFreezeTicks(Integer.MAX_VALUE);}
         else{entity.setFreezeTicks(0);}
-        ((LivingEntity) entity).setInvisible(isRemoved);
+        //((LivingEntity) entity).setInvisible(isRemoved);
         entity.setPersistent(isRemoved);
         entity.teleport(location);
     }
@@ -146,7 +193,7 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
 
             Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(AnimalTransport.getPlugin(), new Runnable(){
                 public void run(){
-                    teleportEntity(true, entity, teleportLocation);
+                    teleportEntity(true, entity, teleportLocation, player);
 
                 }
             }, 1);
@@ -198,10 +245,10 @@ public class AnimalEggCommand  implements CommandExecutor, Listener {
     public Entity getEntityByUniqueId(UUID uniqueId){
         chunk.load();
                 for (Entity entity : chunk.getEntities()) {
+
                     if (entity.getUniqueId().equals(uniqueId))
                         return entity;
         }
-
         return null;
     }
 }

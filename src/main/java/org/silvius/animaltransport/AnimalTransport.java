@@ -1,6 +1,8 @@
 package org.silvius.animaltransport;
 
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.Configuration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -13,11 +15,13 @@ public final class AnimalTransport extends JavaPlugin {
 
     @Override
     public void onEnable() {
+
         plugin = this;
-        getCommand("transportei").setExecutor(new AnimalEggCommand());
+        saveDefaultConfig();
+        getCommand("animaltransport").setExecutor(new AnimalEggCommand());
         PluginManager pluginManager = Bukkit.getPluginManager();
         pluginManager.registerEvents(new AnimalEggCommand(), this);
-
+        AnimalEggCommand.initialize();
 
 
     }

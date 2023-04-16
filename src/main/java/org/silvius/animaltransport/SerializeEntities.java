@@ -1,5 +1,6 @@
 package org.silvius.animaltransport;
 
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,18 +12,20 @@ import org.bukkit.entity.*;
 import org.bukkit.metadata.MetadataValue;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
+import org.yaml.snakeyaml.Yaml;
 
 public class SerializeEntities {
     public static String serializeEntity(Entity entity)
+
+
     {
         AgeableEntityData entityData = new AgeableEntityData((Ageable) entity);
 
 // serialize the PlayerData object to a JSON object using GSON
         Gson gson = new Gson();
-        String json = gson.toJson(entityData);
 
 
-        return json;
+        return gson.toJson(entityData);
     }
 
     public static void spawnEntity(Location location, String string){

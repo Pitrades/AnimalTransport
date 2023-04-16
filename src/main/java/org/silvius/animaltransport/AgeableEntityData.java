@@ -5,10 +5,10 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Sheep;
 
 public class AgeableEntityData {
-    private double health;
-    private int age;
-    private boolean isAdult;
-    private EntityType type;
+    private final double health;
+    private final int age;
+    private final boolean isAdult;
+    private final EntityType type;
     private boolean sheared;
 
     public AgeableEntityData(Ageable entity) {

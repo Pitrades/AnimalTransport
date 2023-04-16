@@ -3,8 +3,7 @@ version: '${project.version}'
 main: org.silvius.animaltransport.AnimalTransport
 api-version: 1.19
 commands:
-  transportei:
-    usage: /transportei
+  animaltransport:
+    usage: /animaltransport
     aliases: []
-    description: Gibt das Transport-Ei Item
 
